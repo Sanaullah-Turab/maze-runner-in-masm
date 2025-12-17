@@ -250,3 +250,107 @@ SetupLevel3:
     call ResetTimer
     jmp  GameLoop
 
+LoadLevel1 PROC
+    mov  currentScore, 500       ; Initial Base Score
+    mov  currentLevel, 1
+    mov  mapPtr, OFFSET map1
+    mov  rowSize, L1_ROW_SIZE
+    mov  playerPos, L1_START_POS
+    call ResetTimer
+    ret
+LoadLevel1 ENDP
+
+; --- Time Bonus Logic (Sanaullah) ---
+
+; Procedure: CheckTimeStatus
+; Returns: EAX = 1 if time is up, 0 if safe
+CheckTimeStatus PROC
+    call GetMseconds
+    sub  eax, startTime
+    
+    ; Check if time > 20000ms (20 seconds)
+    cmp  eax, timeLimit
+    ja   TimeIsUp
+
+    ; Calculate remaining time for display
+    mov  ebx, timeLimit
+    sub  ebx, eax
+    mov  timeLeft, ebx
+    
+    mov  eax, 0
+    ret
+
+TimeIsUp:
+    mov  eax, 1
+    ret
+CheckTimeStatus ENDP
+
+; Procedure: ResetTimer
+; Resets the clock for the new level
+ResetTimer PROC
+    call GetMseconds
+    mov  startTime, eax
+    ret
+ResetTimer ENDP
+
+; Procedure: CalculateTimeBonus
+; Adds points based on how fast the level was finished
+; Logic: Score += (TimeLeft in seconds * 10)
+CalculateTimeBonus PROC
+    mov  eax, timeLeft
+    mov  ebx, 1000
+    xor  edx, edx
+    div  ebx             ; EAX now holds seconds left
+    
+    mov  ebx, 10         ; Multiplier
+    mul  ebx             ; EAX = Seconds * 10
+    
+    add  currentScore, eax
+    ret
+CalculateTimeBonus ENDP
+
+;  GAME END SCREENS
+
+GameWon:
+    call Clrscr
+    mov  edx, OFFSET strWin
+    call WriteString
+    jmp  ShowFinalScore
+
+TimeUpGameOver:
+    call Clrscr
+    mov  edx, OFFSET strLoss
+    call WriteString
+    jmp  ShowFinalScore
+
+QuitGame:
+    call Clrscr
+
+ShowFinalScore:
+    mov  edx, OFFSET strFinal
+    call WriteString
+    mov  eax, currentScore
+    call WriteDec
+    call Crlf
+    
+    mov  edx, OFFSET strQuitMsg
+    call WriteString
+
+    ; --- HOLD KEY PROTECTION LOOP ---
+    ; This loop reads characters but only reacts to 'q'.
+    ; If you are holding 'd' or 'w', it will just eat those inputs
+    ; and stay in the loop, keeping the window open.
+
+WaitForSpecificQuit:
+    call ReadChar
+    or   al, 00100000b  ; Convert to lowercase
+    
+    cmp  al, 'q'        ; Check if 'q' was pressed
+    je   ExitProgram    ; If yes, exit
+    
+    jmp  WaitForSpecificQuit ; If no (even if it's 'w'/'a'/'s'/'d'), keep waiting
+
+ExitProgram:
+    exit
+main ENDP
+END main
